@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+*.egg-info/
+
+# Output directories
+vmi_analysis_output/
+vmi_analysis_*/
+
+# Data files
+*.tif
+*.tiff
+*.h5
+*.npy
+*.csv
+
+# IDE
+.vscode/
+.idea/
+.claude/
+.serena/

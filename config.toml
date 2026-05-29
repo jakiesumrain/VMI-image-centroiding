@@ -1,0 +1,232 @@
+# ==============================================================================
+# ANDOR CAMERA CONFIGURATION FILE
+# ==============================================================================
+# Configuration for Andor camera acquisition and live preview scripts
+# - andor_tiff_experiment_attr2.py: TIFF acquisition with GMD embedded in metadata
+#   (NDAttributes auto-detection: inline XML or file-path mode)
+# - andor_live_preview_updated.py: Optimized real-time image preview
+#
+# Author: Jeffrey
+# Date: 2025-01-27
+# ==============================================================================
+
+[vmi_picasso]
+# VMI Photoelectron Analysis - PICASSO VERSION Configuration
+# Used by: process_andor_vmi_PICASSO.py
+#
+# Picasso uses Maximum Likelihood Estimation (MLE) + Net Gradient algorithm
+# Originally designed for single-molecule localization microscopy (SMLM)
+# Advantages: Superior pile-up recovery, statistically optimal for Poisson noise
+# ==============================================================================
+
+# --- Input/Output Directories ---
+# Directory containing VMI signal data (TIFF files)
+data_dir = "/path/to/your/signal/data/_1/Default"
+
+# Directory containing dark/background frames (separate from signal)
+# Must contain true dark frames (no photoelectron signal)
+# Leave empty or comment out if no dark frames available
+dark_data_dir = "/path/to/your/dark/data/_1/Default"
+
+# Output directory for analysis results
+output_dir = "vmi_analysis_output"
+
+# --- Picasso Localization Parameters ---
+# BOX_SIZE: ROI size for MLE fitting (must be odd number)
+# Rule of thumb: BOX_SIZE = round(6 × σ + 1), where σ = PSF standard deviation
+# Typical values:
+#   SMLM: 7-11 pixels (σ ≈ 1 pixel)
+#   VMI: 7-13 pixels (σ ≈ 1-2 pixels)
+# Too small: Truncates PSF wings, reduces precision
+# Too large: Includes excess noise, slows computation
+box_size = 7
+
+# MIN_NET_GRADIENT: Detection threshold for Net Gradient algorithm
+# Net Gradient = sum(inner pixels) - sum(outer annulus)
+# Properties: Proportional to intensity, independent of background
+# Typical values:
+#   SMLM: 5000-10000 (high signal)
+#   VMI high signal: 1000-3000
+#   VMI low signal: 500-1000
+# Too low: False positives (noise detected as spots)
+# Too high: Misses weak photoelectron events
+# Use tuning mode to optimize (see processing.tuning_only)
+min_net_gradient = 500
+
+# --- Camera Parameters for MLE Fitting ---
+# These parameters are critical for correct MLE fitting with Poisson noise model
+
+# CAMERA_BASELINE: Average dark count level (ADU)
+# IMPORTANT: If dark frame is subtracted BEFORE Picasso, set to 0
+# If no dark subtraction, set to mean of dark frame (e.g., 100-500)
+camera_baseline = 0
+
+# CAMERA_SENSITIVITY: Conversion factor from ADU to electrons (e⁻/ADU)
+# Check camera specification sheet or metadata
+# Examples:
+#   Andor iXon EMCCD: ~6 e⁻/ADU
+#   Andor Zyla sCMOS: ~0.5 e⁻/ADU
+# If unavailable, set to 1.0 (treat ADU as relative units)
+camera_sensitivity = 1.0
+
+# CAMERA_GAIN: Electron multiplication (EM) gain
+# For EMCCD with EM gain active: Set to actual gain (e.g., 200-300)
+# For conventional CCD/CMOS: Set to 1
+camera_gain = 1
+
+# CAMERA_QE: Quantum efficiency at detection wavelength (0-1)
+# Note: As of Picasso v0.6.0, not actively used in MLE fitting
+# Kept for backward compatibility
+# Typical: 0.9 for back-illuminated CCDs
+camera_qe = 0.9
+
+# --- MLE Convergence Parameters ---
+# Smaller convergence = higher precision, longer computation
+# Increase max_iterations if many spots fail to converge
+mle_convergence = 0.01
+mle_max_iterations = 1000
+
+# --- Tuning Plot Histogram Bins ---
+# Number of bins for the three diagnostic histograms in tuning mode
+tuning_bins_photons = 20       # Panel 2: Photon distribution
+tuning_bins_net_gradient = 20  # Panel 3: Net Gradient distribution
+tuning_bins_precision = 20     # Panel 4: Localization precision
+
+# Frame index to use for tuning mode (0-based)
+tuning_frame_index = 1000
+
+# --- Processing Options ---
+[vmi_picasso.processing]
+# Enable parallel processing using multiple CPU cores
+# True: Much faster for large datasets
+# False: Sequential processing (lower memory usage)
+enable_parallel = true
+
+# Number of CPU cores to use (null = use all available cores)
+# Examples: 4, 8, 16, or null
+num_cores = 8
+
+# Enable dark frame subtraction
+# True: Uses median of dark frames from dark_data_dir
+# False: Estimates background per-frame using sigma-clipped statistics
+#        (Robust to sparse VMI data, uses astropy.stats.sigma_clipped_stats)
+enable_dark_subtraction = true
+
+# Number of dark frames to average (only used if enable_dark_subtraction = true)
+dark_frame_count = 500
+
+# Enable flat field correction (detector response normalization)
+enable_flat_field = false
+
+# Path to flat field file (NumPy .npy format)
+# Only used if enable_flat_field = true
+flat_field_file = "masterflat.npy"
+
+# Enable circular mask to exclude events outside MCP active area
+# Useful to remove edge artifacts and define ROI
+enable_circular_mask = false
+
+# Mask parameters (only used if enable_circular_mask = true)
+# If not specified, geometric center of image is used
+# Uncomment and set values when enabling circular mask:
+# mask_center_x = 512.5  # e.g., 512.5 for 1024×1024 image
+# mask_center_y = 512.5  # e.g., 512.5 for 1024×1024 image
+# mask_radius = 480      # e.g., 480 pixels
+
+# Tuning mode: Run detection on single frame to optimize parameters
+# True: Process only one test frame, show diagnostic plots, skip batch
+# False: Run full batch processing on all frames
+# Workflow:
+#   1. Set tuning_only = true
+#   2. Adjust box_size and min_net_gradient until satisfied
+#   3. Set tuning_only = false
+#   4. Run full batch processing
+tuning_only = false
+
+# --- VMI Histogram Parameters ---
+[vmi_picasso.histogram]
+# Resolution factor for 2D VMI histogram
+# 1 = Native resolution (512×512 for 2×2 binning)
+# 2 = 2× upsampling (1024×1024)
+# WARNING: Values > 1 can create grid artifacts
+# Recommended: Keep at 1
+resolution_factor = 1
+
+# Enable Abel inversion to reconstruct 3D momentum distribution
+# Requires: pip install pyabel
+# Method: BASEX (fast and accurate for VMI)
+enable_abel = false
+
+# --- GMD Normalization ---
+[vmi_picasso.gmd]
+# Enable GMD (Gas Monitor Detector) pulse energy normalization
+# True: Weight each event by mean_gmd / gmd_energy
+# False: All events have weight = 1.0 (no correction)
+#
+# PHYSICS CAVEAT FOR STRONG-FIELD IONIZATION:
+# Linear weighting (weight = mean/actual) assumes signal ∝ intensity.
+# In strong-field ionization (SFI), rate scales as I^N (N = multiphoton order).
+# For large pulse fluctuations (>10%), linear normalization may be insufficient.
+#
+# Alternatives for nonlinear processes:
+#   - Bin data by GMD ranges instead of weighting
+#   - Use weight = (mean/actual)^N if N is known
+#   - Set enable_gmd_weighting = false, analyze bins separately
+enable_gmd_weighting = false
+
+# ==============================================================================
+# TUNING WORKFLOW
+# ==============================================================================
+#
+# 1. Initial Setup:
+#    - Set data_dir and dark_data_dir paths
+#    - Set tuning_only = true
+#    - Start with box_size = 7, min_net_gradient = 1000
+#
+# 2. Run Tuning Mode:
+#    python process_andor_vmi_PICASSO.py
+#    - Check output: vmi_analysis_picasso_*/01_tuning_check_picasso.png
+#
+# 3. Evaluate Detection:
+#    Panel 1 (Raw Frame):
+#      ✓ All bright spots should have red circles
+#      ✓ No circles on dark background
+#    Panel 2 (Photon Distribution):
+#      ✓ Smooth distribution, no spike at threshold
+#    Panel 3 (Net Gradient):
+#      ✓ Clear separation between signal and noise
+#      ✓ Threshold (red line) in valley between peaks
+#    Panel 4 (Precision):
+#      ✓ Median < 0.1 pixels for good data
+#
+# 4. Adjust Parameters:
+#    - False positives (noise detected)? → Increase min_net_gradient
+#    - Missing weak spots? → Decrease min_net_gradient
+#    - Spots truncated in circles? → Increase box_size
+#    - Repeat steps 2-3 until satisfied
+#
+# 5. Batch Processing:
+#    - Set tuning_only = false
+#    - Run full analysis: python process_andor_vmi_PICASSO.py
+#
+# ==============================================================================
+# CAMERA PARAMETER GUIDELINES
+# ==============================================================================
+#
+# BASELINE Configuration:
+#   - Dark frame subtracted BEFORE Picasso? → camera_baseline = 0
+#   - No dark subtraction? → camera_baseline = mean(dark_frame)
+#   - Per-frame background estimation? → camera_baseline = 0
+#
+# SENSITIVITY Determination:
+#   - Check camera specification sheet
+#   - Look for "e⁻/ADU", "electrons per count", or "gain"
+#   - If unavailable: Set camera_sensitivity = 1.0
+#
+# For Andor cameras:
+#   - Check acquisition metadata
+#   - May be returned in EPICS PV or TIFF tags
+#   - iXon EMCCD: Typical ~6 e⁻/ADU (conventional mode)
+#   - Zyla sCMOS: Typical ~0.5 e⁻/ADU
+#
+# ==============================================================================
